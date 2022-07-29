@@ -1,0 +1,26 @@
+\section{Goal of Thesis}
+\label{sec:goal}
+
+In order to understand the impact of a column-based compared to a row-based layout, we analyze the problem space according to the following dimensions:
+\begin{itemize}
+    \item Query operators (projections, filters, joins, aggregations)
+    \item Columnar selectivity
+    \item Row selectivity
+    \item Size of the schema
+    \item Data types used in the schema (mainly in-line types, i.e. \emph{int} vs. pointer indirect types, i.e. \emph{std::string})
+    \item Batch size
+    \item Window types (mainly tumbling and sliding windows)
+\end{itemize}
+
+Independently of this, we will look at the transformation of incoming tuples into a columnar-based store as well as their materialization back into a row-based format at the end of the query.
+This also raises the question of whether hybrid forms of data storage are worthwhile.
+If, for example, some fields are not used during the actual processing (i.e. no filters, joins or aggregations take place on them), but they have to be finally issued with the tuples as payload, this cold data could be kept in a row-store while the hot data is processed in a column-store. 
+As a  result, one can hopefully create a cost model that decides at query compilation time whether it will process data more efficiently row-based, column-based, or hybrid.
+
+An additional goal will be to also understand how these different approaches perform on different hardware.
+As shown by~\citet{DBLP:journals/pvldb/KerstenLKNPB18}, vectorizing plays a central role in efficient query processing.
+However, with different vectorizing extensions on different platforms as well as different kinds of memory on different machines~\cite[]{bollmeier2021processor}, especially the aforementioned \ac{hbm}, the performance of row-store-based and column-store-based streaming could be influenced significantly.
+
+A side thread that could be explored is to what extent the transformation of incoming tuples in the system can be pushed down in order to save unnecessary copies of the tuples.
+
+After analyzing the design space in several microbenchmarks, we test the suitability of column-store streaming in the Darwin stream processing engine~\cite[]{DBLP:conf/cidr/BensonR22}.

@@ -1,0 +1,19 @@
+\section{Motivation}
+\label{sec:motivation}
+
+Current \acp{spe} can process terabytes of incoming data per second~\cite[]{alibaba}.
+Because widely used \acp{spe} such as Apache Flink and Spark Streaming do not fully utilize the underlying hardware and are resource inefficient~\cite[]{DBLP:conf/icde/ZhangHDZH17,DBLP:journals/pvldb/ZeuchBRMKLRTM19}, the implementation of recent \acp{spe} shifted towards system languages such as C and C++. 
+This increased their throughput by up to two orders of magnitude compared to state-of-the-art SPEs~\cite[]{DBLP:journals/pvldb/ZeuchBRMKLRTM19}.
+
+However, along with these performance gains, the bottlenecks of SPEs have also shifted.
+In particular, it has become apparent that memory and not CPU performance is the new bottleneck for many queries~\cite[]{bollmeier2021processor}.
+
+The shift to system languages also brings \acp{spe} much closer to classical database systems, which are usually also implemented system languages.
+One trend observed in classical database systems in recent years is the introduction of more and more column-oriented database systems, like MonetDB~\cite[]{DBLP:journals/debu/IdreosGNMMK12,DBLP:conf/cidr/BonczZN05,DBLP:journals/vldb/BonczK99}, C-Store~\cite[]{DBLP:conf/vldb/StonebrakerABCCFLLMOORTZ05} or SAP HANA~\cite[]{DBLP:conf/sigmod/SikkaFLCPB12}
+They work around the same memory bottleneck we now observe for \acp{spe}~\cite[]{DBLP:conf/vldb/BonczMK99} by accessing memory for efficiently~\cite[]{DBLP:conf/sigmod/AbadiMH08} which makes them ultimately faster than row-based database systems.
+
+However, this column-based store seems inherently incompatible with true streaming, which assumes processing one tuple at a time.
+However, this understanding no longer corresponds to the truth, since tuples arrive at least in mini-batches corresponding to the size of network packets and \acp{spe} process them as is.
+Accordingly, it is interesting to investigate how a column-oriented \ac{spe} performs against a row-based one (or even hybrid forms).
+With MonetDB/Datacell~\cite[]{DBLP:journals/pvldb/LiarouIMK12} and Trill~\cite[]{DBLP:journals/pvldb/ChandramouliGBDPTW14}, two \acp{spe} have been designed in recent years that operate on a column-store.
+Of particular interest is how the characteristics of the queries and tuples influence the performance.

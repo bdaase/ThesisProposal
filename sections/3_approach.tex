@@ -1,4 +1,27 @@
 \section{Approach}
 \label{sec:approach}
 
-Methodological and conceptual approach of the thesis and ideas/plans of implementation.
+For the microbenchmarks, we first focus on \textbf{(a)} the used query primitives (projections, filters, joins, aggregations), \textbf{(b)} its selection as well as \textbf{(c)} its selectivity.
+We follow along with \textbf{(d)}, the size of the schema in combination with \textbf{(e)}, the data types used in the schema (mainly in-line types, i.e. \emph{int} vs. pointer indirect types, i.e. \emph{std::string}).
+Finally, we analyze how \textbf{(f)} the mini-batch size, different \textbf{(g)} window types (mainly tumbling and sliding windows) and if time permits \textbf{(h)} multithreading influences the result.
+
+\subsection{Query Primitives}
+Relational algebra boils down to the following operators: \emph{Projections}, \emph{Filters}, \emph{Joins}, \emph{Aggregations}, and \emph{Selections}.
+In this section, we will analyze all of the above except selections, since they are somehow special when comparing row-based and column-based streaming since each operation represents a clean filter in one dimension.
+
+\subsection{Selection}
+Excluded from the classical relational algebra primitives we consider the \emph{Selection} as well as the \emph{Selectivity}.
+A high selectivity should be favorable for the row-store since this would allow aligned erasing of data out of an \ac{aos}.
+On the other hand, working only on a few columns allows dropping entire arrays from an \ac{aos}.
+
+\subsection{Selectivity}
+
+\subsection{Schema Size}
+
+\subsection{Schema Data Types}
+
+\subsection{Mini-batch Size}
+
+\subsection{Window Types}
+
+\subsection{Multithreading}

@@ -10,6 +10,7 @@
 \usepackage[square,sort,comma,numbers]{natbib}
 \usepackage[nolist,nohyperlinks]{acronym}
 \usepackage{xurl}
+\usepackage{listings}
 
 % SET YOUR DATA HERE
 % This is a preliminary title for your thesis.
@@ -19,7 +20,7 @@
 \newcommand{\name}{Björn Daase}
 
 % The time frame in which you want to write the thesis.
-\newcommand{\timeFrame}{August 2022 - January 2023}
+\newcommand{\timeFrame}{August 2022 - February 2023}
 
 % The primary supervisor. You probably do not need to change this.
 \newcommand{\supervisor}{Prof. Dr. Tilmann Rabl}
@@ -30,6 +31,35 @@
 % Select if this is a Bachelor or Master Thesis.
 \newcommand{\thesisType}{Master}
 
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{codeyellow}{rgb}{0.67,0.67,0.0}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    language=Python,
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    emph={testfunc,print,src},
+    emphstyle=\color{codeyellow},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
 
 \newcommand\todo[1]{\colorbox{yellow}{#1}}
 \setlength{\bibsep}{0.0pt}

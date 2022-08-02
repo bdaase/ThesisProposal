@@ -12,11 +12,8 @@ As shown by~\citet{DBLP:journals/pvldb/KerstenLKNPB18}, vectorizing plays a cent
 However, with different vectorizing extensions on different platforms as well as different kinds of memory on different machines~\cite[]{bollmeier2021processor}, especially the aforementioned \ac{hbm}, the performance of row-store-based and column-store-based streaming could be influenced significantly.
 For reference, the \ac{hbm} ARM systems can reach up to 3x sequential memory bandwidth compared to state-of-the-art Intel, AMD, and Power systems which peak around 200 GB/s~\cite[]{bollmeier2021processor}.
 
-As a  result, we can hopefully create a cost model that decides at query compilation time whether it will process data more efficiently row-based, column-based, or hybrid.
-Finally, we test the suitability of our cost model and non-row-store streaming in the Darwin stream processing engine~\cite[]{DBLP:conf/cidr/BensonR22}.
-
 Given that, we plan the following contributions:
 \begin{enumerate}
     \item We understand the impact of different data layouts (row-based, column-based, or hybrid) on the query performance of \acp{spe}.
-    \item We create a cost model that allows to pick the best layout at query compilation time and validate that in the Darwin stream processing engine.
+    \item We create a cost model that allows us to pick the best layout at query compilation time and validate that in the Darwin stream processing engine~\cite[]{DBLP:conf/cidr/BensonR22}.
 \end{enumerate}

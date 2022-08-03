@@ -2,8 +2,35 @@
 \label{sec:related-work}
 
 Both \acp{spe}, as well as column stores, are well-researched topics.
-However, their combination has so far been limited to their complete integration into MonetDB/Datacell~\cite[]{DBLP:journals/pvldb/LiarouIMK12} and Trill~\cite[]{DBLP:journals/pvldb/ChandramouliGBDPTW14} without a detailed analysis of the advantages and disadvantages of such integration.
+However, their combination has so far been limited to their integration by MonetDB/Datacell~\cite{DBLP:journals/pvldb/LiarouIMK12} and Trill~\cite{DBLP:journals/pvldb/ChandramouliGBDPTW14} without a detailed analysis of the advantages and disadvantages of such an integration.
 
 \subsection{Stream Processing Egines}
 
+A repeatedly mentioned difference between modern \acp{spe} is the underlying processing model~\cite{DBLP:journals/pvldb/ZeuchBRMKLRTM19}, which can be either micro-batching or pipeline-tuple-at-a-time processing~\cite{DBLP:journals/pvldb/AkidauBCCFLMMPS15,DBLP:conf/cloud/BattreEHKMW10,DBLP:conf/pldi/ChambersRPAHBW10,DBLP:conf/osdi/DeanG04,DBLP:conf/nsdi/ZahariaCDDMMFSS12}.
+Micro-batching \acp{spe} divide data streams into batches, i.e. finite sets of tuples, and process one batch at a time.
+Prominent examples of that execution model are Spark~\cite{DBLP:journals/cacm/ZahariaXWDADMRV16} and SABER~\cite{DBLP:conf/sigmod/KoliousisWFWCP16}.
+In contrast, tuple-at-a-time systems, have long-standing data-parallel pipelines that consist of stream transformations, where instead of splitting streams into micro-batches, operators retrieve individual tuples and continuously generate output tuples.
+\acp{spe} such as Apache Flink~\cite{DBLP:journals/cacm/ZahariaXWDADMRV16} and Storm~\cite{DBLP:conf/sigmod/ToshniwalTSRPKJGFDBMR14} use this approach.
+However, usually left out of this discussion is the fact that in both models, the data already arrives in so-called nano-batches from other systems.
+Thus, regardless of the specific execution model, it is possible to perform batch processing even in tuple-at-a-time systems.
+
+Additionally, in the last decades \acp{spe} have been developed in two different directions: As scale-out as well as scale-up systems.
+Scale-out systems are optimized for executing streaming queries on distributed, heterogenous, shared-nothing architectures and thus are of limited relevance to our analyses. 
+Of much more interest to us are scale-up systems, which are optimized for execution on a single machine to efficiently utilize the capabilities of modern high-end systems.
+Current \acp{spe} in this category include Streambox~\cite{DBLP:conf/usenix/MiaoPJPML17}, Trill~\cite{DBLP:journals/pvldb/ChandramouliGBDPTW14}, and SABER.
+Streambox in particular aims to optimize execution for multicore machines, while SABER considers heterogeneous processing through the use of GPUs.
+Finally, Trill scores high on flexibility, supporting a wide range of queries with SQL as well as streaming queries.
+However, all of these systems focus primarily on optimizing computational performance, but not on optimizing memory patterns and access.
+
 \subsection{Column Stores}
+
+The MonetDB systems~\cite{DBLP:conf/cidr/BonczZN05,DBLP:journals/vldb/BonczK99} pioneered the development of modern column-oriented database systems and vectorized query execution.
+As a result, a wide range of columnar database systems was created to follow this approach~\cite{DBLP:conf/sigmod/SikkaFLCPB12,DBLP:conf/vldb/StonebrakerABCCFLLMOORTZ05,DBLP:conf/icde/ZukowskiWB12,DBLP:journals/pvldb/GrundKPZCM10}.
+\citet{DBLP:journals/pvldb/LiarouIMK12} already showed that column-oriented designs can significantly outperform row-based databases in standardized benchmarks such as TPC-H due to superior CPU and cache performance~\cite{DBLP:conf/sigmod/AbadiMH08}.
+
+The work of \citet{DBLP:conf/sigmod/SikkaFLCPB12} is thereby of particular interest.
+Not only have they presented further optimizations for column stores, but they have also disproved the myth that column stores are better than row stores only for OLAP queries.
+For increasingly complex OLTP queries with even newly designed and more complex benchmarks like TPC-E~\cite{DBLP:conf/sigmod/SikkaFLCPB12,DBLP:conf/edbt/TozunPKJA13,tpce}, the nano-batch sizes in the streaming copuld already contain enough tuples, so that column stores deliver better performance than row stores.
+
+A detailed comparison of how column-oriented and row-oriented databases compare to each other was given by \citet{DBLP:conf/sigmod/AbadiMH08}, however, showing that simulating a row store in a column store does not yield good results.
+While vectorization of specific parts of the code can improve performance dramatically~\cite{DBLP:journals/pvldb/KerstenLKNPB18}, \citet{DBLP:conf/vldb/HarizopoulosLAM06} compare the performance of a row and column store built from scratch and demonstrates that in a carefully controlled environment, column stores still outperform row stores.

@@ -2,7 +2,7 @@
 \label{sec:motivation}
 
 Current \acp{spe} can process terabytes of incoming data per second~\cite[]{alibaba}.
-Because widely used \acp{spe} such as Apache Flink and Spark Streaming do not fully utilize the underlying hardware and are resource inefficient~\cite[]{DBLP:conf/icde/ZhangHDZH17,DBLP:journals/pvldb/ZeuchBRMKLRTM19}, the implementation of recent \acp{spe} shifted towards system languages such as C and C++. 
+Because widely used \acp{spe} such as Apache Flink~\cite{DBLP:journals/debu/CarboneKEMHT15} and Spark Streaming~\cite{DBLP:journals/cacm/ZahariaXWDADMRV16} do not fully utilize the underlying hardware and are resource inefficient~\cite[]{DBLP:conf/icde/ZhangHDZH17,DBLP:journals/pvldb/ZeuchBRMKLRTM19}, the implementation of recent \acp{spe} shifted towards system languages such as C and C++. 
 This increased their throughput by up to two orders of magnitude compared to state-of-the-art SPEs~\cite[]{DBLP:journals/pvldb/ZeuchBRMKLRTM19}.
 
 However, along with these performance gains, the bottlenecks of SPEs have also shifted.
@@ -10,27 +10,29 @@ In particular, it has become apparent that memory and not CPU performance is the
 
 The shift to system languages also brings \acp{spe} much closer to classical database systems, which are usually also implemented in system languages.
 One trend observed in classical database systems in recent years is the introduction of more and more column-oriented database systems, like MonetDB~\cite[]{DBLP:journals/debu/IdreosGNMMK12,DBLP:conf/cidr/BonczZN05,DBLP:journals/vldb/BonczK99}, C-Store~\cite[]{DBLP:conf/vldb/StonebrakerABCCFLLMOORTZ05} or SAP HANA~\cite[]{DBLP:conf/sigmod/SikkaFLCPB12}.
-They work around the same memory bottleneck we now observe for \acp{spe}~\cite[]{DBLP:conf/vldb/BonczMK99} by accessing memory more efficiently~\cite[]{DBLP:conf/sigmod/AbadiMH08}, which makes them ultimately faster than row-based database systems.
+They work around the same memory bottleneck we now observe for \acp{spe}~\cite[]{DBLP:conf/vldb/BonczMK99} by accessing memory more efficiently~\cite[]{DBLP:conf/sigmod/AbadiMH08}, which makes them ultimately faster than row-based DBMS.
 
-At first sight, this column-based store seems inherently incompatible with true streaming, which assumes processing one tuple at a time.
-However, his understanding does not reflect the truth of modern \acp{spe} anymore.
-Taking the Apache Kafka to Apache Flink interaction as an example, data is always transferred in so-called nano-batches.
-Upon arrival, Apache Flink then also processes those nano-batches in a batch processing manner accordingly.
+At first sight, this column-based storage of tuples seems inherently incompatible with true streaming, which assumes processing one tuple at a time.
+However, this understanding does not reflect the behavior of modern \acp{spe} anymore.
+Taking the Apache Kafka~\cite{Kreps2011KafkaA} to Apache Flink interaction as an example, data is always transferred in so-called nano-batches between systems, i.e. tuples already arrive in Apache Flink in larger sets.
+Upon arrival, Apache Flink then processes those nano-batches in a batch processing manner accordingly.
 The exact size of the nano-batches depends on the actual application, i.e. its performance and configuration.
-Additionally, with MonetDB/Datacell~\cite[]{DBLP:journals/pvldb/LiarouIMK12} and Trill~\cite[]{DBLP:journals/pvldb/ChandramouliGBDPTW14}, two \acp{spe} have already been designed in recent years that operate on a column-store.
+In addition, MonetDB/Datacell~\cite[]{DBLP:journals/pvldb/LiarouIMK12} and Trill~\cite[]{DBLP:journals/pvldb/ChandramouliGBDPTW14}, two \acp{spe} that use columnar storage, have already been developed in recent years.
 
-Column-based systems store data as an \ac{soa} and thus the same attributes of different tuples lie next to each other in memory~\cite{DBLP:conf/sigmod/AbadiMH08,DBLP:conf/vldb/AilamakiDHS01}.
-If an attribute is iterated over in a hot loop, this has the advantage that when the attribute of one tuple is accessed, the corresponding attributes of the other tuples are already available in the same cache line.
-When these are thus requested in the following loop iteration, they do not have to be read again explicitly from the memory but can be served from cache and are nearly instantly available.
+Column-based systems store data as a \ac{soa} and thus the same attributes of different tuples next to each other in memory~\cite{DBLP:conf/sigmod/AbadiMH08,DBLP:conf/vldb/AilamakiDHS01}.
+If an attribute is iterated over in a hot loop, this has the advantage that when the attribute of one tuple is accessed, the corresponding attributes of the other tuples are already present in the same cache line.
+Thus, when they are requested in subsequent loop iterations, they do not have to be explicitly read from main memory again, but can be served from the cache and are available almost immediately.
 
-This is not the case with row-based systems where data is stored as an \ac{aos}.
-There, the data of a tuple always lie contiguously in the memory.
-Now, when accessing the attribute of a tuple instead of getting the attributes of the next few tuples already for free, the cache line is polluted with surrounding irrelevant attributes~\cite{DBLP:conf/sigmod/AbadiMH08,DBLP:conf/vldb/AilamakiDHS01}.
-Instead, when doing the next iteration in the loop, another main memory access has to be performed instead of serving the data from the cache.
+This is not the case with row-based systems where the data is stored as an \ac{aos}.
+There, the attributes of a single tuple are contiguous in memory.
+Now, when the attribute of a tuple is accessed, the cache line is polluted with surrounding irrelevant attributes~\cite{DBLP:conf/sigmod/AbadiMH08,DBLP:conf/vldb/AilamakiDHS01} instead of getting the attributes of the next few tuples already for free.
+Therefore, subsequent loop iterations must perform additional main memory accesses instead of serving the data from the cache.
 
 Column stores however also come with a flip side.
 Since streaming is inherently tuple-based, data is exchanged between systems almost exclusively in a row-based manner (one of the few exceptions here is \emph{Parquet}).
-Thus, column-based processing of the tuples adds the costs for the transformation during data ingestions as well as the reverse transformation during data egestion.
+Thus, column-based processing of tuples incurs additional costs for transformation at data ingress and retransformation at data egress.
 
-Considering the combined costs, i.e. the gains in the actual processing step as well as the losses due to the conversion to a columnar format, it is interesting to investigate how a column-oriented \ac{spe} performs against a row-based one (or even hybrid forms).
+Considering the combined costs, i.e. the gains in the actual processing step as well as the losses due to the conversion to a columnar format, it is interesting to investigate how a column-oriented \ac{spe} performs against a row-based one.
+Depending on the results, this also raises the question of whether hybrid forms of data storage are worthwhile.
+If, for example, some fields are not used during the actual processing (i.e. no filters, joins or aggregations take place on them), but they have to be finally issued with the tuples as payload, this cold data could be kept in a row-store while the hot data is processed in a column-store.
 Of particular interest is how the characteristics of the queries, schemas, and nano-batches influence the performance.

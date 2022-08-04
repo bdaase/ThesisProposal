@@ -4,10 +4,10 @@
 In order to understand the impact of a column-based compared to a row-based layout for an \ac{spe}, we analyze their raw query performance along several microbenchmarking dimensions.
 Therefore, we select a set of Nexmark queries~\cite{tucker2008nexmark} to be able to pinpoint the influence on query performance depending on the relational algebra operators.
 We will further investigate a few side branches to also understand the influence of preceding input parsing, explicit SIMD operations, the underlying memory architecture and vectorizing extension, different window types, and multithreading. 
-Independently of the benefits, we will look at the transformation of incoming tuples into a columnar-based store as well as their materialization back into a row-based format at the end of the query so that we can estimate the costs.
+Independently of the benefits, we will look at the transformation of incoming tuples into a columnar-based format as well as their materialization back into a row-based format at the end of the query so that we can estimate the costs.
 As a result, this allows us to select a suitable storage format before query execution.
 
-After analyzing the design space in several microbenchmarks, we test the suitability of non-row store storage in the Darwin stream processing engine~\cite{DBLP:conf/cidr/BensonR22}.
+After analyzing the design space in several microbenchmarks, we test the suitability of non-row-based storage in the Darwin stream processing engine~\cite{DBLP:conf/cidr/BensonR22}.
 At this point, we get even more concrete application scenarios and can further tune our hybrid approach. 
 Given that, we plan the following contributions:
 \begin{enumerate}

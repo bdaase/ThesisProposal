@@ -1,16 +1,16 @@
 \section{Approach}
 \label{sec:approach}
 
-We begin by analyzing the advantages of a column store over a row store in an exhaustive set of microbenchmarks based primarily on Nexmark queries~\cite{tucker2008nexmark}.
+We begin by analyzing the advantages of column-oriented over row-oriented stream processing in an exhaustive set of microbenchmarks based primarily on Nexmark queries~\cite{tucker2008nexmark}.
 The queries are chosen to represent as exclusively as possible the relational algebra operation under consideration.
 We implement the processing of each operator once with data input, processed, and output as row storage, and once with data input, processed, and output as column storage.
 The queries are hard-coded in C++, with the data stored as \acp{aos} if row memory is simulated, and as \acp{soa} in the case of column memory.
 In a separate step for each operation, we will then streamline the selected query to contain only the operation and thus not be affected by external factors.
-Finally, we will also explore a few side strands for a few selected interesting and representative queries, which might further influence the row and column store performance.
+Finally, we will also explore a few side strands for a few selected interesting and representative queries, which might further influence the row and columnar format performance.
 
-After discussing the benefits, we will continue with the cost of converting to column format before the actual query, as well as converting back to a row format at the end of it.
+After discussing the benefits, we will continue with the cost of converting to a columnar format before the actual query, as well as converting back to a row format at the end of it.
 As a  result, we can hopefully predict at query compilation time whether an \ac{spe} will process data more efficiently row-based, column-based, or in a hybrid matter.
-Finally, we test the suitability of non-row-store streaming in the Darwin stream processing engine~\cite[]{DBLP:conf/cidr/BensonR22}.
+Finally, we test the suitability of non-row-oriented streaming in the Darwin stream processing engine~\cite[]{DBLP:conf/cidr/BensonR22}.
 
 \subsection{Microbenchmark Analysis - Benefits}
 Relational algebra boils down to the following four query primitives: \emph{Projections}, \emph{Selections}, \emph{Aggregations}, and \emph{Joins}.
@@ -32,36 +32,34 @@ SELECT auction, bidder, price, dateTime, extra FROM Bid;
 \end{lstlisting}
 with the underlying schema
 \begin{lstlisting}[language=c++]
-Bid(size_t auction, size_t bidder, size_t price, std::string channel, std::string url, time_t dateTime, std::string extra);
+Bid(size_t auction, size_t bidder, size_t price, string channel, string url, time_t dateTime, string extra);
 \end{lstlisting}
 
-Already on this projection, we will analyze the influence of the nano-batch size, i.e. the tuples arriving at once.
-Here we already hope for a better vectorization due to a larger number of available tuples.
+We will start with \textbf{(a)}, analyzing the influence of the nano-batch size.
+The larger the number of tuples arriving at the same time, the more efficient our column-oriented stream processing should become.
+For very tight, hot loops, we can use SIMD instructions to speed up column-oriented streaming significantly.
+We can then use wide SIMD operations (up to AVX-512) to process multiple tuples simultaneously.
 
-In the next step, we will slightly modify the query so that all of the attributes of the input schema \emph{Bid} also occur in the output, instead of additionally filtering attributes.
+As the next step \textbf{(b)}, we will slightly modify the query so that all of the attributes of the input schema \emph{Bid} also occur in the output, instead of additionally filtering attributes.
 As a result, the query represents a clean passthrough that is not influenced by any other operation and thus allows us to examine how unused attributes influence the query performance.
-Working only on a few columns allows dropping entire arrays from a \ac{soa}, which should heavily favor the column store.
+Working only on a few columns allows dropping entire arrays from a \ac{soa}, which should heavily favor the columnar format.
 
-Following, we modify the query to evaluate the influence of the schema on the projection.
+Following, in \textbf{(c)} we modify the query to evaluate the influence of the schema on the projection.
 In order to do so, we vary the number of fields of the input and output relations, as well as the size of the individual relations themselves.
-The latter is controlled by modifying the length of the \emph{std::string} fields.
 
-In addition, projections also cover calculations on some attributes.
+In addition, projections also cover calculations on some attributes which we will analyze in \textbf{(d)}.
 This time we use query 1, which looks as follows
 
 \begin{lstlisting}[language=SQL]
 SELECT auction, bidder, 0.908 * price, dateTime, extra FROM Bid;
 \end{lstlisting}
 
-To fully understand the influence of the actual computation, we also vary the query to remove all attributes from input and output that do not have to do with the actual calculation.
-We further adapt this query during evaluation by replacing the floating point multiplication on the price with an integer multiplication, thus not getting a floating number as a result.
-To further analyze the data types, we will replace the operation with an operation on an \emph{std::string} attribute.
-We also vary the complexity of the operation to understand its impact on performance.
+To focus on the impact of the computation, we will again reduce this query to the calculation column before further adjusting the query to measure the impact of both the complexity of the operation as well as the underlying input and output data types.
 
 \subsubsection{Selections}
 
 A selection $\sigma$ is used for selecting a subset of the tuples according to a given selection condition.
-We will use query 2 from the Apache Beam Nexmark benchmark suite extension to understand its impact on column and row stores. 
+We will use query 2 from the Apache Beam Nexmark benchmark suite extension to understand its impact on column and row formats. 
 It represents a slightly modified query 2 from the original Nexmark queries since the original query will only yield a few hundred results over event streams of arbitrary size.
 To make it more interesting, they instead choose a modulo operation for filtering.
 It looks as follows
@@ -70,10 +68,10 @@ It looks as follows
 SELECT auction, price FROM Bid WHERE MOD(auction, 123) = 0;
 \end{lstlisting}
 
-Again, we are looking at the size of the nano-batches, i.e. tuples that can be filtered at once.
+Again, we are looking at \textbf{(a)} the size of the nano-batches, i.e. tuples that can be filtered at once.
 Here we expect that an increased number of tuples leads to a much better vectorization on the hot filter attribute \emph{auction} and thus significantly improves the query performance.
 Unique to the selection investigation, however, is the filter condition, which we will look at in detail.
-Specifically, we investigate \textbf{(a)}, the selectivity of the filter, \textbf{(b)} the data type of the column being filtered on, and \textbf{(c)} the effects of filters that span multiple columns.
+Specifically, we investigate \textbf{(b)}, the selectivity of the filter, \textbf{(c)} the data type of the column being filtered on, and \textbf{(d)} the effects of filters that span multiple columns.
 
 \subsubsection{Aggregations}
 Aggregations are an umbrella term for the following five aggregate functions: \emph{Sum}, \emph{Count}, \emph{Average}, \emph{Maximum}, and \emph{Minimum}.
@@ -81,8 +79,7 @@ They differ in the concrete calculation of the aggregates, but they have in comm
 
 Unfortunately, Nexmark does not provide a query that is exclusively an aggregation.
 Therefore, we use the subquery of query 5 to represent an aggregation.
-It consists only of a \emph{Count}, and thus the most CPU resource-friendly, aggregate function.
-It looks as follows
+It consists only of a \emph{Count}, and thus the most CPU resource-friendly, aggregate function and looks as follows
 
 \begin{lstlisting}[language=SQL]
 SELECT auction, count(*) AS num FROM Bid GROUP BY auction;
@@ -90,11 +87,11 @@ SELECT auction, count(*) AS num FROM Bid GROUP BY auction;
 
 To fully isolate the effect of the aggregation, we will again slim down this query to just the actual aggregation column.
 As with the previous operators, we will also examine the impact of the scheme on query performance.
-We however note at this point, that the aggregation payload might significantly influence the performance.
-
-In addition to again varying the size of the nano-batches, the window size is also of particular interest for an aggregation.
+We however note at this point, that \textbf{(a)} the aggregation payload might significantly influence the performance.
+The window size \textbf{(b)} is also of particular interest for an aggregation.
 While the nano-batch size represents the input tuple size, the window size defines how many tuples can be processed and output at once. 
-We will further investigate the influence of the actual aggregation by adapting the aforementioned query for all four other aggregation functions accordingly. 
+We will further investigate \textbf{(c)} the influence of the actual aggregation by adapting the aforementioned query for all four other aggregation functions accordingly. 
+Finally, we will \textbf{(d)} investigate the key size (specifically multi-column keys) and \textbf{(e)} the number of parallel aggregations.
 
 \subsubsection{Join}
 
@@ -115,24 +112,24 @@ WHERE
 with
 
 \begin{lstlisting}[language=c++]
-Auction(size_t id, std::string itemName, std::string description, size_t initialId, size_t reserve, time_t dateTime, time_t expires, size_t seller, size_t category, std::string extra);
+Auction(size_t id, string itemName, string description, size_t initialId, size_t reserve, time_t dateTime, time_t expires, size_t seller, size_t category, string extra);
 \end{lstlisting}
 
 and
 
 \begin{lstlisting}[language=c++]
-Person(size_t id, std::string name, std::string emailAddress, std::string creditCard, std::string city, std::string state, time_t dateTime, std::string extra);
+Person(size_t id, string name, string emailAddress, char[16] creditCard, string city, char[2] state, time_t dateTime, string extra);
 \end{lstlisting}
 
 As a next step, we again modify the query so it only contains the columns relevant for the join.
-For the payload, we will then proceed exactly as we did for the aggregation.
-
-Besides again investigating the influence of the nano-batch size as well as the schema structure, a unique parameter to joins is the likelihood of finding a join partner.
-Since the Nexmark queries do not come up with ranges for the attributes in the schema, we have to predict values and distributions.
+For the payload investigation \textbf{(a)}, we will proceed exactly as we did for the aggregation.
+Besides again investigating the influence of the window size \textbf{(b)}, a unique parameter to joins is \textbf{(c)}, the likelihood of finding a join partner.
+Since the Nexmark queries do not come up with ranges for the attributes in the schema, we will vary their values and distributions to examine their influence on the performance.
+We note that \textbf{(d)}, the \emph{Person} schema is of particular interest since it contains both fixed-size as well as variable-sized string \emph{string} columns.
 
 \subsection{Microbenchmark Analysis - Costs}
 
-Using a column store does not come without a cost.
+Using a columnar format does not come without a cost.
 The tuples must first be converted from a row-based format to a column-based format upon arrival in the system, whereas with row-based processing a bare copy of the corresponding memory areas is sufficient.
 As a final step after the query finished processing a tuple, it has to be egested as a full tuple again, i.e. transformed back into a row representation.
 Again, a bare copy of the corresponding memory areas is sufficient when doing row-based processing.
@@ -147,7 +144,7 @@ The baseline against which we compare performance is a transformation of the sch
 
 
 At this point, we expect again particular influences from the scheme as well as the size of the nano-batches arriving in the system.
-While larger nano-batches should allow transforming the data from a row store into a column store more efficiently, many attributes could hinder the performance since during the split-up of the input tuple multiple output arrays have to be accessed in that case.
+While larger nano-batches should allow transforming the data from a row format into a columnar format more efficiently, many attributes could hinder the performance since during the split-up of the input tuple multiple output arrays have to be accessed in that case.
 
 \subsubsection{Output Transformation}
 
@@ -156,11 +153,11 @@ Since at this point we have looked at Nexmark queries 0, 1, 2, 3, and 5, we will
 Those are
 
 \begin{lstlisting}[language=c++]
-Query0(size_t auction, size_t bidder, size_t price, time_t dateTime, time_t expires, std::string extra);
+Query0(size_t auction, size_t bidder, size_t price, time_t dateTime, time_t expires, string extra);
 \end{lstlisting}
 
 \begin{lstlisting}[language=c++]
-Query1(size_t auction, size_t bidder, double price, time_t dateTime, time_t expires, std::string extra);
+Query1(size_t auction, size_t bidder, double price, time_t dateTime, time_t expires, string extra);
 \end{lstlisting}
 
 \begin{lstlisting}[language=c++]
@@ -168,7 +165,7 @@ Query2(size_t auction, size_t price);
 \end{lstlisting}
     
 \begin{lstlisting}[language=c++]
-Query3(std::string name, std::string city, std::string state, size_t id);
+Query3(string name, string city, char[2] state, size_t id);
 \end{lstlisting}
 
 \begin{lstlisting}[language=c++]
@@ -179,48 +176,45 @@ The baseline will again be transforming data from a row-based to a row-based for
 
 \subsection{Additional Influences}
 
-While the aforementioned operators will be the focus of our analysis, we presume that there are additional factors that influence the performance of a row store as well as a column store for \acp{spe}.
-Those are the influence of additional input parsing and combined transformation into the correct data layout, the explicit vectorization of code, examining different memory architectures, the influence of window types, and, if time permits, how multithreading affects the comparison.
+While the aforementioned operators will be the focus of our analysis, we presume that there are additional factors that influence the performance of row-oriented and column-oriented stream processing.
+Those are the influence of additional input parsing and combined transformation into the correct data layout, the explicit vectorization of code, examining different memory architectures, and the influence of window types.
 
 \subsubsection{Explicit Input Parsing}
 While our previous additional cost analysis expected tuples to be arriving in C structs, the exchange format between stream processing systems is usually somewhat different.
-JSON~\cite{DBLP:journals/pvldb/PalkarABZ18,DBLP:journals/vldb/LangdaleL19,DBLP:journals/pvldb/LiKCGK17} and CSV~\cite{DBLP:journals/pvldb/MuhlbauerRSRK013,DBLP:conf/sigmod/0002LECK19,DBLP:journals/pvldb/StehleJ20} files, in particular, are taken for exchange, which then have to be parsed when the tuples arrive.
+JSON~\cite{DBLP:journals/pvldb/PalkarABZ18,DBLP:journals/vldb/LangdaleL19,DBLP:journals/pvldb/LiKCGK17} and Googles FlatBuffers~\cite{googleflatbuffers} files, in particular, are taken for exchange, which then have to be parsed when the tuples arrive.
 Thus, we want to examine to what extent the advantage of the row-based processing when using advanced exchange formats compared to a simple \emph{memcpy} is forfeited.
-We expect, however, that the tuple exchange format should still favor the row-based store when ingesting data.
 
 \subsubsection{Explicit SIMD}
 
 Previous research has shown that inserting explicit SIMD operations compared to relying on compiler auto-vectorization can further improve query performance significantly~\cite{DBLP:journals/pvldb/KerstenLKNPB18}.
 At this point, we want to investigate to what extent this effect also applies to data that is already stored in a \ac{soa}, and thus should already be easy for compilers to auto-vectorize.
-
+Our research will mainly focus on how we can \textbf{(a)} further improve the performance of the actual query processing by focusing on tight, hot loops (e.g., filters), \textbf{(b)} investigate input row to columnar format transformation to find out whether vectorizing the read or the write further improves performance, and \textbf{(c)} improve the write-back of output tuples to batch the writing of one attribute (within a window) and then vectorize this operation.
+ 
 \subsubsection{Memory Architectures}
 
 As shown by~\citet{DBLP:journals/pvldb/KerstenLKNPB18}, vectorizing plays a central role in efficient query processing.
-However, with different vectorizing extensions on different platforms as well as different kinds of memory on different machines~\cite[]{bollmeier2021processor}, especially \ac{hbm}, the performance of row-store-based and column-store-based streaming could be influenced significantly.
+However, with different vectorizing extensions on different platforms as well as different kinds of memory on different machines~\cite[]{bollmeier2021processor}, especially \ac{hbm}, the performance of row-format-based and columnar-format-based streaming could be influenced significantly.
 For reference, the \ac{hbm} ARM systems can reach up to 3x sequential memory bandwidth compared to state-of-the-art Intel, AMD, and Power systems which peak around 200 GB/s~\cite[]{bollmeier2021processor}.
-Therefore, we want to understand how these different kinds of memory influence row-store and column-store streaming.
+Therefore, we want to understand how these different kinds of memory influence row-oriented and column-oriented streaming.
 
 \subsection{Windowing Types}
 
 While we only work with tumbling windows up to this point, we will extend the space by examining different windowing types.
-Here's what we expect: While with tumbling windows each tuple is written once and read exactly once again, the situation is different for sliding windows. 
-The slices created by stream slicing are now read again for each window the slices belong to.
-This results in a write-once-read-many scenario much closer to conventional DBMS which should favor the column store.
-
-\subsubsection{Multithreading}
-
-While multithreading, in general, is orthogonal to our design space in theory, designing multithreading-aware memory accesses often has tripping hazards and is therefore often non-trivial.
-Especially cache line reuse and invalidation tend to be tricky in a multithreading scenario.
-It is important to note, that, at this point, we do not plan to design a fully parallel column-based \ac{spe}.
-The primary focus is to verify the design and ensure that the column-based \ac{spe} is also multithreading capable.
+For tumbling windows, each tuple is written once and read exactly once again.
+The situation is different for sliding windows when working with joins but also aggregations with large aggregates.
+When joining, tuples have to be buffered within their slice before joining, when aggregating partial aggregates have to be stored in each slice accordingly.
+The slices created by stream slicing are threfore read again for each window the slices belong to.
+This results in a write-once-read-many scenario much closer to conventional DBMS which should favor column-oriented streaming.
 
 \subsection{Combined Costs}
 
-Finally, after all the individual analyses of the row-store and column-store-based design, we will evaluate the combined end-to-end of costs of a few selected queries.
+Finally, after all the individual analyses of the row-based and column-based design, we will evaluate the combined end-to-end costs of a few selected queries.
 
 \subsection{Darwin Integration}
 
-As a very last step, we test the suitability of non-row-store streaming in the Darwin stream processing engine~\cite[]{DBLP:conf/cidr/BensonR22}.
+As a very last step, we test the suitability of non-row-oriented streaming in the Darwin stream processing engine~\cite[]{DBLP:conf/cidr/BensonR22}.
+We thereby analyze the changes to the data format in a realistic system to understand if they also make a difference outside of microbenchmarks.
+
 A complete integration, which then allows both row-based and column-based processing of the data, appears to be very maintenance-intensive.
 Accordingly, if column-based processing only brings small advantages, we will only test its use in a prototype.
 If it turns out that column-based processing is indeed decisively superior in \acp{spe}, the entire Darwin memory model should be adapted accordingly.

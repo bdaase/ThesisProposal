@@ -3,17 +3,17 @@
 
 We begin by analyzing the advantages of column-oriented over row-oriented stream processing in an exhaustive set of microbenchmarks based primarily on Nexmark queries~\cite{tucker2008nexmark}.
 The queries are chosen to represent as exclusively as possible the relational algebra operation under consideration.
-We implement the processing of each operator once with data input, processed, and output as row storage, and once with data input, processed, and output as column storage.
-The queries are hard-coded in C++, with the data stored as \acp{aos} if row memory is simulated, and as \acp{soa} in the case of column memory.
+We implement the processing of each operator once with data input, processed, and output in a row layout, and once with data input, processed, and output in a columnar layout.
+The queries are hard-coded in C++, with the data stored as \acp{aos} if a row layout is simulated, and as \acp{soa} in the case of a columnar layout.
 In a separate step for each operation, we will then streamline the selected query to contain only the operation and thus not be affected by external factors.
-Finally, we will also explore a few side strands for a few selected interesting and representative queries, which might further influence the row and columnar format performance.
+Finally, we will also explore a few side strands for a few selected interesting and representative queries, which might further influence the row and columnar layout performance.
 
-After discussing the benefits, we will continue with the cost of converting to a columnar format before the actual query, as well as converting back to a row format at the end of it.
+After discussing the benefits, we will continue with the cost of converting to a columnar layout before the actual query, as well as converting back to a row layout at the end of it.
 As a  result, we can hopefully predict at query compilation time whether an \ac{spe} will process data more efficiently row-based, column-based, or in a hybrid matter.
 Finally, we test the suitability of non-row-oriented streaming in the Darwin stream processing engine~\cite[]{DBLP:conf/cidr/BensonR22}.
 
 \subsection{Microbenchmark Analysis - Benefits}
-Relational algebra boils down to the following four query primitives: \emph{Projections}, \emph{Selections}, \emph{Aggregations}, and \emph{Joins}.
+Relational algebra boils down to a set of query primitives, out of which we will focus on the following: \emph{Projections}, \emph{Selections}, \emph{Aggregations}, and \emph{Joins}.
 We will approach them one by one, in the aforementioned order.
 Across the operator experiments, we assume tumbling windows.
 Orthogonally, we will consider for each primitive at least the influence of the data schema structure and the size of the input nano-batches.
@@ -42,7 +42,7 @@ We can then use wide SIMD operations (up to AVX-512) to process multiple tuples 
 
 As the next step \textbf{(b)}, we will slightly modify the query so that all of the attributes of the input schema \emph{Bid} also occur in the output, instead of additionally filtering attributes.
 As a result, the query represents a clean passthrough that is not influenced by any other operation and thus allows us to examine how unused attributes influence the query performance.
-Working only on a few columns allows dropping entire arrays from a \ac{soa}, which should heavily favor the columnar format.
+Working only on a few columns allows dropping entire arrays from a \ac{soa}, which should heavily favor the columnar layout.
 
 Following, in \textbf{(c)} we modify the query to evaluate the influence of the schema on the projection.
 In order to do so, we vary the number of fields of the input and output relations, as well as the size of the individual relations themselves.
@@ -59,7 +59,7 @@ To focus on the impact of the computation, we will again reduce this query to th
 \subsubsection{Selections}
 
 A selection $\sigma$ is used for selecting a subset of the tuples according to a given selection condition.
-We will use query 2 from the Apache Beam Nexmark benchmark suite extension to understand its impact on column and row formats. 
+We will use query 2 from the Apache Beam Nexmark benchmark suite extension to understand its impact on column and row layouts. 
 It represents a slightly modified query 2 from the original Nexmark queries since the original query will only yield a few hundred results over event streams of arbitrary size.
 To make it more interesting, they instead choose a modulo operation for filtering.
 It looks as follows
@@ -129,22 +129,22 @@ We note that \textbf{(d)}, the \emph{Person} schema is of particular interest si
 
 \subsection{Microbenchmark Analysis - Costs}
 
-Using a columnar format does not come without a cost.
-The tuples must first be converted from a row-based format to a column-based format upon arrival in the system, whereas with row-based processing a bare copy of the corresponding memory areas is sufficient.
+Using a columnar layout does not come without a cost.
+The tuples must first be converted from a row layout to a columnar layout upon arrival in the system, whereas with row-based processing a bare copy of the corresponding memory areas is sufficient.
 As a final step after the query finished processing a tuple, it has to be egested as a full tuple again, i.e. transformed back into a row representation.
 Again, a bare copy of the corresponding memory areas is sufficient when doing row-based processing.
 
 \subsubsection{Input Transformation}
-The additional work of data transformation from a row-based to a column-based format also affects regular DBMS during data ingestion.
+The additional work of data transformation from a row to a columnar layout also affects regular DBMS during data ingestion.
 However, in a DBMS the data is read again multiple times after ingestion since multiple queries are expected to be executed on the same data.
 This is usually not the case with \acp{spe}, where data is written once and only read once again.
 
-At this point, we compare the transformation of all Nexmark schemas (\emph{Auction}, \emph{Bid}, and \emph{Person}) from a row-based to a column-based format.
-The baseline against which we compare performance is a transformation of the schemas from a row-based to a row-based format, which can be represented by a \emph{memcpy}.
+At this point, we compare the transformation of all Nexmark schemas (\emph{Auction}, \emph{Bid}, and \emph{Person}) from a row to a columnar layout.
+The baseline against which we compare performance is a transformation of the schemas from a row to a row layout, which can be represented by a \emph{memcpy}.
 
 
 At this point, we expect again particular influences from the scheme as well as the size of the nano-batches arriving in the system.
-While larger nano-batches should allow transforming the data from a row format into a columnar format more efficiently, many attributes could hinder the performance since during the split-up of the input tuple multiple output arrays have to be accessed in that case.
+While larger nano-batches should allow transforming the data from a row layout into a columnar layout more efficiently, many attributes could hinder the performance since during the split-up of the input tuple multiple output arrays have to be accessed in that case.
 
 \subsubsection{Output Transformation}
 
@@ -172,7 +172,7 @@ Query3(string name, string city, char[2] state, size_t id);
 Query5(size_t auction, size_t num);
 \end{lstlisting}
 
-The baseline will again be transforming data from a row-based to a row-based format which is most efficiently done by a \emph{memcpy}.
+The baseline will again be transforming data from a row to a row layout which is most efficiently done by a \emph{memcpy}.
 
 \subsection{Additional Influences}
 
@@ -193,7 +193,7 @@ Our research will mainly focus on how we can \textbf{(a)} further improve the pe
 \subsubsection{Memory Architectures}
 
 As shown by~\citet{DBLP:journals/pvldb/KerstenLKNPB18}, vectorizing plays a central role in efficient query processing.
-However, with different vectorizing extensions on different platforms as well as different kinds of memory on different machines~\cite[]{bollmeier2021processor}, especially \ac{hbm}, the performance of row-format-based and columnar-format-based streaming could be influenced significantly.
+However, with different vectorizing extensions on different platforms as well as different kinds of memory on different machines~\cite[]{bollmeier2021processor}, especially \ac{hbm}, the performance of row-layout-based and columnar-layout-based streaming could be influenced significantly.
 For reference, the \ac{hbm} ARM systems can reach up to 3x sequential memory bandwidth compared to state-of-the-art Intel, AMD, and Power systems which peak around 200 GB/s~\cite[]{bollmeier2021processor}.
 Therefore, we want to understand how these different kinds of memory influence row-oriented and column-oriented streaming.
 
@@ -203,7 +203,7 @@ While we only work with tumbling windows up to this point, we will extend the sp
 For tumbling windows, each tuple is written once and read exactly once again.
 The situation is different for sliding windows when working with joins but also aggregations with large aggregates.
 When joining, tuples have to be buffered within their slice before joining, when aggregating partial aggregates have to be stored in each slice accordingly.
-The slices created by stream slicing are threfore read again for each window the slices belong to.
+The slices created by stream slicing are therefore read again for each window the slices belong to.
 This results in a write-once-read-many scenario much closer to conventional DBMS which should favor column-oriented streaming.
 
 \subsection{Combined Costs}
@@ -213,9 +213,4 @@ Finally, after all the individual analyses of the row-based and column-based des
 \subsection{Darwin Integration}
 
 As a very last step, we test the suitability of non-row-oriented streaming in the Darwin stream processing engine~\cite[]{DBLP:conf/cidr/BensonR22}.
-We thereby analyze the changes to the data format in a realistic system to understand if they also make a difference outside of microbenchmarks.
-
-A complete integration, which then allows both row-based and column-based processing of the data, appears to be very maintenance-intensive.
-Accordingly, if column-based processing only brings small advantages, we will only test its use in a prototype.
-If it turns out that column-based processing is indeed decisively superior in \acp{spe}, the entire Darwin memory model should be adapted accordingly.
-Provided that it turns out that there are queries where one has advantages with column-based processing as well as others with row-based processing, we will have to implement both storage models in Darwin.
+We thereby analyze the changes to the data layout in a realistic system to understand if they also make a difference outside of microbenchmarks.

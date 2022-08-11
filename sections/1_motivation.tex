@@ -17,7 +17,7 @@ However, this understanding does not reflect the behavior of modern \acp{spe} an
 Taking the Apache Kafka~\cite{Kreps2011KafkaA} to Apache Flink interaction as an example, data is always transferred in larger sets between these systems.
 Such a buffer, which we call \emph{nano-batch}, has at least the size of a network buffer but can be of any size depending on the application, i.e., its performance and configuration.
 However, Apache Flink does by default not exploit those nano-batches and processes these larger tuples sets in a tuple-at-a-time manner.
-In addition, MonetDB/Datacell~\cite[]{DBLP:journals/pvldb/LiarouIMK12} and Trill~\cite[]{DBLP:journals/pvldb/ChandramouliGBDPTW14}, two \acp{spe} that use column-oriented storage, have already been developed in recent years.
+In addition, MonetDB/Datacell~\cite[]{DBLP:journals/pvldb/LiarouIMK12} and Trill~\cite[]{DBLP:journals/pvldb/ChandramouliGBDPTW14}, two \acp{spe} that use a column-oriented layout, have already been developed in recent years.
 
 Column-based systems store data as a \ac{soa} and thus the same attributes of different tuples next to each other in memory~\cite{DBLP:conf/sigmod/AbadiMH08,DBLP:conf/vldb/AilamakiDHS01}.
 If an attribute is iterated over in a hot loop, this has the advantage that when the attribute of one tuple is accessed, the corresponding attributes of the other tuples are already present in the same cache line.
@@ -32,7 +32,7 @@ Column-oriented streaming however also comes with a major downside.
 Since streaming is inherently tuple-based, data is exchanged between systems almost exclusively in a row-based manner.
 Thus, column-based processing of tuples incurs additional costs for transformation at data ingress and retransformation at data egress.
 
-Considering the combined costs, i.e. the gains in the actual processing step as well as the losses due to the conversion to a columnar format, it is interesting to investigate how a column-oriented \ac{spe} performs against a row-based one.
-Depending on the results, this also raises the question of whether hybrid forms of data storage are worthwhile.
+Considering the combined costs, i.e. the gains in the actual processing step as well as the losses due to the conversion to a columnar layout, it is interesting to investigate how a column-oriented \ac{spe} performs against a row-based one.
+Depending on the results, this also raises the question of whether hybrid data layouts are worthwhile.
 If, for example, some fields are not used during the actual processing (i.e. no filters, joins or aggregations take place on them), but they have to be finally issued with the tuples as payload, this cold data could be kept in a row-store while the hot data is processed in a column-store.
 Of particular interest is how the characteristics of the queries, schemas, and nano-batches influence the performance.
